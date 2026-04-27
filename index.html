@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAPPER | The Fortress</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #0a0a0a; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        nav { background: #ffcc00; color: #000; width: 100%; padding: 15px; font-weight: bold; font-size: 28px; text-align: center; box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3); }
+        .auth-container, .main-app { max-width: 500px; width: 90%; margin-top: 50px; text-align: center; }
+        .card { background: #1a1a1a; border: 1px solid #333; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn-primary { background: #ffcc00; color: #000; }
+        .btn-secondary { background: #333; color: #fff; }
+        .lap-display { margin-top: 20px; border-left: 5px solid #ffcc00; padding-left: 20px; text-align: left; }
+        #current-lap-text { font-size: 24px; font-weight: bold; margin: 15px 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<nav>LAPPER</nav>
+
+<div id="auth-section" class="auth-container">
+    <div class="card">
+        <h2>Enter the Fortress</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button class="btn-primary" onclick="signUp()">SIGN UP</button>
+        <button class="btn-secondary" onclick="signIn()">LOGIN</button>
+        <button class="btn-secondary" style="background: #444;" onclick="continueAsGuest()">CONTINUE AS GUEST</button>
+    </div>
+</div>
+
+<div id="app-section" class="main-app hidden">
+    <div class="card">
+        <div id="user-info">Logged in as: <span id="user-email" style="color:#ffcc00"></span></div>
+        <button class="btn-secondary" style="width: auto; font-size: 12px;" onclick="signOut()">Logout</button>
+        
+        <hr style="border: 0.5px solid #333; margin: 20px 0;">
+
+        <h3>Post a Lap</h3>
+        <textarea id="lap-input" placeholder="What's the word? (Max 100 chars)" maxlength="100"></textarea>
+        <button class="btn-primary" onclick="postLap()">SEND LAP</button>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3>THE LATEST LAP</h3>
+        <div class="lap-display">
+            <p id="current-lap-text">Loading the prophecy...</p>
+            <p style="color: #666; font-size: 12px;">Posted by: <span id="lap-author">...</span></p>
+        </div>
+        <button class="btn-secondary" onclick="fetchLatestLap()">REFRESH</button>
+    </div>
+</div>
+
+<script>
+    // 1. INITIALIZE SUPABASE
+    const supabaseUrl = 'https://plvwvjjpgfwrzfphafsz.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdnd2ampwZ2Z3cnpmcGhhZnN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMDE2OTcsImV4cCI6MjA5Mjg3NzY5N30.uMSHEPD0_H5OsshKumdY5gatFCLjpe9uYNQEN12UyLE';
+    const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    // 2. AUTH LOGIC
+    async function signUp() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await _supabase.auth.signUp({ email, password });
+        if (error) alert(error.message); else alert("Check your email for confirmation!");
+    }
+
+    async function signIn() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+        if (error) alert(error.message); else checkUser();
+    }
+
+    async function checkUser() {
+        const { data: { user } } = await _supabase.auth.getUser();
+        if (user) {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('app-section').classList.remove('hidden');
+            document.getElementById('user-email').innerText = user.email;
+            fetchLatestLap();
+        } else {
+            document.getElementById('auth-section').classList.remove('hidden');
+            document.getElementById('app-section').classList.add('hidden');
+        }
+    }
+
+    // 3. DATABASE LOGIC (LAPS)
+    async function postLap() {
+        const content = document.getElementById('lap-input').value;
+        const { data: { user } } = await _supabase.auth.getUser();
+        
+        if (!content) return;
+
+        const { error } = await _supabase
+            .from('laps')
+            .insert([{ content: content, email: user.email }]);
+
+        if (error) alert(error.message);
+        else {
+            document.getElementById('lap-input').value = '';
+            fetchLatestLap();
+        }
+    }
+
+    async function fetchLatestLap() {
+        const { data, error } = await _supabase
+            .from('laps')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (data && data.length > 0) {
+            document.getElementById('current-lap-text').innerText = `"${data[0].content}"`;
+            document.getElementById('lap-author').innerText = data[0].email;
+        } else {
+            document.getElementById('current-lap-text').innerText = "No laps yet. Be the first!";
+        }
+    }
+    let isGuest = false;
+
+async function continueAsGuest() {
+    isGuest = true;
+    // Hide login, show app
+    document.getElementById('auth-section').classList.add('hidden');
+    document.getElementById('app-section').classList.remove('hidden');
+    
+    // Hide the posting UI for guests (Read-Only Mode)
+    document.getElementById('user-info').innerHTML = "<span style='color:#888'>Viewing as Guest (Login to post)</span>";
+    document.querySelector('.card textarea').disabled = true;
+    document.querySelector('.card textarea').placeholder = "Guests cannot post laps...";
+    document.querySelector('.btn-primary').classList.add('hidden');
+    
+    fetchLatestLap();
+}
+
+// Update your existing signOut to reset guest status
+async function signOut() {
+    isGuest = false;
+    await _supabase.auth.signOut();
+    checkUser();
+}
+
+    checkUser();
+</script>
+</body>
+</html>
