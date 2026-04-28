@@ -206,18 +206,87 @@
 
     // --- DM LOGIC ---
 
-    async function searchUser() {
-        const target = document.getElementById('search-username').value;
-        const { data, error } = await _supabase.from('profiles').select('id, username').eq('username', target).single();
-        
-        if (data) {
-            document.getElementById('dm-status').innerText = `Opening secure tunnel to ${data.username}...`;
-            // Here you would redirect to a DM window with receiver_id: data.id
-        } else {
-            alert("User not found in the Fortress.");
-        }
-    }
+    let activeChatId = null; // The UUID of the person you are DMing
 
+async function searchUser() {
+    const target = document.getElementById('search-username').value;
+    const { data, error } = await _supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('username', target)
+        .single();
+    
+    if (data) {
+        activeChatId = data.id; // Save who we are talking to
+        document.getElementById('dm-status').innerText = `Tunnel Open: ${data.username}`;
+        loadDMs(); // Start fetching the messages
+    } else {
+        alert("User not found in the Fortress.");
+    }
+}
+
+// FETCH MESSAGES
+async function loadDMs() {
+    if (!activeChatId || !myProfile) return;
+
+    // Get messages where (Me -> Them) OR (Them -> Me)
+    const { data, error } = await _supabase
+        .from('direct_messages')
+        .select('*')
+        .or(`and(sender_id.eq.${myProfile.id},receiver_id.eq.${activeChatId}),and(sender_id.eq.${activeChatId},receiver_id.eq.${myProfile.id})`)
+        .order('created_at', { ascending: true });
+
+    if (data) {
+        const dmContainer = document.getElementById('section-dms');
+        // Add a small chat window to the UI if it doesn't exist
+        let chatBox = document.getElementById('chat-window');
+        if (!chatBox) {
+            chatBox = document.createElement('div');
+            chatBox.id = 'chat-window';
+            chatBox.style = "background:#222; padding:15px; border-radius:10px; margin-top:10px; height:200px; overflow-y:auto; text-align:left;";
+            dmContainer.appendChild(chatBox);
+            
+            // Add a Send Input
+            const input = document.createElement('input');
+            input.id = 'dm-input';
+            input.placeholder = "Type a secret message...";
+            const btn = document.createElement('button');
+            btn.className = "btn-primary";
+            btn.innerText = "SEND DM";
+            btn.onclick = sendDM;
+            dmContainer.appendChild(input);
+            dmContainer.appendChild(btn);
+        }
+        
+        chatBox.innerHTML = data.map(m => `
+            <div style="margin-bottom:10px; color: ${m.sender_id === myProfile.id ? '#ffcc00' : '#eee'}">
+                <strong>${m.sender_id === myProfile.id ? 'Me' : 'Them'}:</strong> ${m.content}
+            </div>
+        `).join('');
+    }
+}
+
+// SEND MESSAGE
+async function sendDM() {
+    const content = document.getElementById('dm-input').value;
+    if (!content || !activeChatId) return;
+
+    const { error } = await _supabase
+        .from('direct_messages')
+        .insert([{ 
+            sender_id: myProfile.id, 
+            receiver_id: activeChatId, 
+            content: content 
+        }]);
+
+    if (error) {
+        alert("Encryption failed (RLS Error): " + error.message);
+    } else {
+        document.getElementById('dm-input').value = '';
+        loadDMs(); // Refresh chat
+    }
+}
+    
     async function signOut() {
         await _supabase.auth.signOut();
         location.reload();
