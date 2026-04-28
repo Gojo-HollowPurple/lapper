@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAPPER | The Fortress V4.1</title>
+    <title>HOPPER | The Fortress V4.2</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background: #0a0a0a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
@@ -19,7 +19,8 @@
         .btn-tab.active { background: #ffcc00; color: #000; }
         .hidden { display: none; }
         .profile-badge { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
-        .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffcc00; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffcc00; object-fit: cover; background: #333; }
+        .msg-avatar { width: 24px; height: 24px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
         .inbox-item { background: #222; padding: 10px; margin: 5px 0; border-radius: 8px; cursor: pointer; border: 1px solid #444; text-align: left; display: flex; align-items: center; justify-content: space-between; }
         .comm-card { text-align: left; background: #111; border-left: 4px solid #ffcc00; padding: 15px; margin-bottom: 15px; border-radius: 0 10px 10px 0; }
         .chat-win { background:#000; padding:15px; border-radius:10px; height:300px; overflow-y:auto; text-align:left; display:flex; flex-direction:column; border: 1px solid #333; }
@@ -28,11 +29,11 @@
 </head>
 <body>
 
-<nav>LAPPER</nav>
+<nav>HOPPER</nav>
 
 <div id="auth-section" class="auth-container">
     <div class="card">
-        <h2>Enter the Fortress</h2>
+        <h2>Join the Colony</h2>
         <input type="text" id="reg-username" placeholder="Pick a Username">
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Password">
@@ -43,71 +44,71 @@
 
 <div id="app-section" class="main-app hidden">
     <div class="profile-badge">
-        <img id="my-avatar" class="avatar" src="https://via.placeholder.com/40">
+        <img id="my-avatar" class="avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Hopper">
         <div id="user-info"><span id="user-display-name" style="color:#ffcc00; font-weight: bold;"></span></div>
         <button class="btn-secondary" style="width: auto; font-size: 10px; padding: 5px;" onclick="signOut()">Logout</button>
     </div>
 
     <div id="nav-tabs" style="margin: 10px 0;">
-        <button class="btn-tab active" id="tab-laps" onclick="switchTab('laps')">LAPS</button>
-        <button class="btn-tab" id="tab-comms" onclick="switchTab('comms')">COMMUNITIES</button>
+        <button class="btn-tab active" id="tab-laps" onclick="switchTab('laps')">HOPS</button>
+        <button class="btn-tab" id="tab-comms" onclick="switchTab('comms')">COLONIES</button>
         <button class="btn-tab" id="tab-dms" onclick="switchTab('dms')">DMs</button>
     </div>
 
     <div id="section-laps">
         <div class="card">
-            <textarea id="lap-input" placeholder="Update the prophecy..." maxlength="100"></textarea>
-            <button class="btn-primary" onclick="postLap()">SEND LAP</button>
+            <textarea id="lap-input" placeholder="Broadcast a Hop..." maxlength="100"></textarea>
+            <button class="btn-primary" onclick="postLap()">SEND HOP</button>
         </div>
         <div class="card">
-            <div id="current-lap-text" style="font-size: 20px; font-weight: bold;">Watching the skies...</div>
-            <p style="color: #666; font-size: 12px;">By: <span id="lap-author">...</span></p>
+            <div id="current-lap-text" style="font-size: 20px; font-weight: bold;">Waiting for signal...</div>
+            <p style="color: #666; font-size: 12px;">From: <span id="lap-author">...</span></p>
         </div>
     </div>
 
     <div id="section-comms" class="hidden">
         <div id="comm-list-view">
             <div class="card">
-                <h3>Forge Group</h3>
-                <input type="text" id="new-comm-name" placeholder="Group Name">
-                <textarea id="new-comm-desc" placeholder="Group description..." maxlength="150" style="height: 60px;"></textarea>
+                <h3>Found a Colony</h3>
+                <input type="text" id="new-comm-name" placeholder="Colony Name">
+                <textarea id="new-comm-desc" placeholder="What happens here?" maxlength="150" style="height: 60px;"></textarea>
                 <select id="new-comm-privacy">
-                    <option value="true">Public (Default)</option>
+                    <option value="true">Public</option>
                     <option value="false">Private</option>
                 </select>
-                <button class="btn-primary" onclick="createCommunity()">CREATE COMMUNITY</button>
+                <button class="btn-primary" onclick="createCommunity()">CREATE</button>
             </div>
             <div class="card">
-                <h3>Explore</h3>
+                <h3>Explore Colonies</h3>
                 <div id="community-list">Scanning...</div>
             </div>
         </div>
 
         <div id="comm-chat-view" class="hidden">
             <div class="card">
-                <h3 id="active-comm-name"># Group Name</h3>
+                <h3 id="active-comm-name"># Colony</h3>
                 <div id="comm-chat-window" class="chat-win"></div>
-                <input type="text" id="comm-msg-input" placeholder="Message the group...">
+                <input type="text" id="comm-msg-input" placeholder="Message colony...">
                 <button class="btn-primary" onclick="sendCommMsg()">SEND</button>
-                <button class="btn-secondary" onclick="exitComm()">Exit Group</button>
+                <button class="btn-secondary" onclick="exitComm()">Exit Chat</button>
             </div>
         </div>
     </div>
 
     <div id="section-dms" class="hidden">
         <div class="card" id="dm-inbox-section">
-            <h3>Inbox</h3>
-            <div id="dm-inbox">No messages yet.</div>
+            <h3>Secret Inbox</h3>
+            <div id="dm-inbox">Silence...</div>
             <hr style="border: 0.1px solid #333;">
-            <input type="text" id="search-username" placeholder="Search Username...">
-            <button class="btn-primary" onclick="searchUser()">START NEW CHAT</button>
+            <input type="text" id="search-username" placeholder="Search Hopper...">
+            <button class="btn-primary" onclick="searchUser()">NEW DM</button>
         </div>
         <div id="chat-container" class="card hidden">
             <h4 id="chat-with-name">Chat</h4>
             <div id="dm-chat-window" class="chat-win"></div>
-            <input type="text" id="dm-input" placeholder="Secret message...">
+            <input type="text" id="dm-input" placeholder="Whisper something...">
             <button class="btn-primary" onclick="sendDM()">SEND</button>
-            <button class="btn-secondary" onclick="closeChat()">Back to Inbox</button>
+            <button class="btn-secondary" onclick="closeChat()">Back</button>
         </div>
     </div>
 </div>
@@ -124,20 +125,27 @@
     async function checkUser() {
         const { data: { user } } = await _supabase.auth.getUser();
         if (user) {
-            const { data } = await _supabase.from('profiles').select('*').eq('id', user.id).single();
-            myProfile = data;
-            document.getElementById('auth-section').classList.add('hidden');
-            document.getElementById('app-section').classList.remove('hidden');
-            document.getElementById('user-display-name').innerText = data.username;
-            setupRealtime();
-            fetchLatestLap();
-            fetchInbox();
-            fetchCommunities();
+            const { data, error } = await _supabase.from('profiles').select('*').eq('id', user.id).single();
+            if (data) {
+                myProfile = data;
+                // --- PROFILE PIC FIX ---
+                const avatarImg = document.getElementById('my-avatar');
+                const defaultAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${data.username}`;
+                avatarImg.src = data.avatar_url || defaultAvatar;
+                
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('app-section').classList.remove('hidden');
+                document.getElementById('user-display-name').innerText = data.username;
+                setupRealtime();
+                fetchLatestLap();
+                fetchInbox();
+                fetchCommunities();
+            }
         }
     }
 
     function setupRealtime() {
-        _supabase.channel('global_fortress')
+        _supabase.channel('hopper_network')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'laps' }, p => updateLapUI(p.new))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'communities' }, () => fetchCommunities())
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages' }, p => {
@@ -165,26 +173,19 @@
         document.getElementById('community-list').innerHTML = data ? data.map(c => `
             <div class="comm-card" style="border-color:${c.is_public ? '#ffcc00' : '#f44'}">
                 <strong># ${c.name}</strong>
-                <p style="font-size:12px; color:#888;">${c.description || 'No description.'}</p>
+                <p style="font-size:12px; color:#888;">${c.description || 'A quiet colony.'}</p>
                 <div class="comm-actions">
                     <button class="btn-tab" style="flex-grow:1; margin:0;" onclick="enterComm('${c.id}', '${c.name}')">ENTER</button>
                     ${c.owner_id === myProfile.id ? `<button class="btn-danger" onclick="deleteCommunity('${c.id}', '${c.name}')">🗑️</button>` : ''}
                 </div>
             </div>
-        `).join('') : "No communities found.";
+        `).join('') : "No colonies found.";
     }
 
     async function deleteCommunity(id, name) {
-        if(!confirm(`Are you sure you want to delete ${name}? This cannot be undone.`)) return;
-        
+        if(!confirm(`Exterminate the ${name} colony?`)) return;
         const { error } = await _supabase.from('communities').delete().eq('id', id).eq('owner_id', myProfile.id);
-        
-        if(error) {
-            alert("Error: " + error.message);
-        } else {
-            if(activeCommId === id) exitComm();
-            fetchCommunities();
-        }
+        if(error) alert(error.message); else if(activeCommId === id) exitComm();
     }
 
     async function enterComm(id, name) {
@@ -203,17 +204,20 @@
 
     async function loadCommMsgs() {
         const { data } = await _supabase.from('community_messages')
-            .select('content, sender_id, profiles(username)')
+            .select('content, sender_id, profiles(username, avatar_url)')
             .eq('community_id', activeCommId)
             .order('created_at', { ascending: true });
         
         const win = document.getElementById('comm-chat-window');
-        win.innerHTML = data ? data.map(m => `
+        win.innerHTML = data ? data.map(m => {
+            const pfp = m.profiles?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${m.profiles?.username}`;
+            return `
             <div style="margin-bottom:8px; align-self: ${m.sender_id === myProfile.id ? 'flex-end' : 'flex-start'}">
-                <b style="color:${m.sender_id === myProfile.id ? '#ffcc00' : '#00d4ff'}">${m.profiles?.username || 'User'}:</b> 
+                <img src="${pfp}" class="msg-avatar">
+                <b style="color:${m.sender_id === myProfile.id ? '#ffcc00' : '#00d4ff'}">${m.profiles?.username || 'Hopper'}:</b> 
                 <span>${m.content}</span>
             </div>
-        `).join('') : "";
+        `}).join('') : "";
         win.scrollTop = win.scrollHeight;
     }
 
@@ -287,7 +291,7 @@
     async function searchUser() {
         const target = document.getElementById('search-username').value;
         const { data } = await _supabase.from('profiles').select('id, username').eq('username', target).single();
-        if (data) openChat(data.id, data.username); else alert("User not found!");
+        if (data) openChat(data.id, data.username); else alert("Hopper not found!");
     }
 
     async function signUp() {
@@ -296,7 +300,7 @@
         const username = document.getElementById('reg-username').value;
         const { data, error } = await _supabase.auth.signUp({ email, password });
         if (error) return alert(error.message);
-        if (data.user) { await _supabase.from('profiles').insert([{ id: data.user.id, username }]); alert("Done!"); }
+        if (data.user) { await _supabase.from('profiles').insert([{ id: data.user.id, username }]); alert("Account ready!"); }
     }
 
     async function signIn() {
