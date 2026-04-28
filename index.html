@@ -66,8 +66,18 @@
     async function signUp() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { error } = await _supabase.auth.signUp({ email, password });
-        if (error) alert(error.message); else alert("Check your email for confirmation!");
+        const { error } = await _supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                emailRedirectTo: 'https://gojo-hollowpurple.github.io/lapper/'
+            }
+        });
+        if (error) {
+            alert(error.message);
+        } else {
+            alert("Check your email!");
+        }
     }
 
     async function signIn() {
