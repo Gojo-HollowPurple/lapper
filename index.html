@@ -152,6 +152,9 @@
             }
             fetchInbox();
         })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communities' }, payload => {
+            fetchCommunities(); 
+        })
         .subscribe();
     }
 
@@ -249,6 +252,51 @@
     }
 
     async function signOut() { await _supabase.auth.signOut(); location.reload(); }
+
+    async function createCommunity() {
+    const nameInput = document.getElementById('new-comm-name');
+    const name = nameInput.value.trim();
+    
+    if (!name) return alert("Give your community a name!");
+    if (!myProfile) return alert("You must be logged in.");
+
+    const { error } = await _supabase
+        .from('communities')
+        .insert([{ name: name, owner_id: myProfile.id }]);
+
+    if (error) {
+        alert("Creation failed: " + error.message);
+    } else {
+        nameInput.value = '';
+        // Realtime will trigger the refresh, but let's do it manually just in case
+        fetchCommunities();
+    }
+}
+
+async function fetchCommunities() {
+    const { data, error } = await _supabase
+        .from('communities')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    const list = document.getElementById('community-list');
+    
+    if (error) {
+        list.innerHTML = "Error loading groups.";
+        return;
+    }
+
+    if (data && data.length > 0) {
+        list.innerHTML = data.map(c => `
+            <div class="card" style="padding:15px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; background:#222;">
+                <span><strong># ${c.name}</strong></span>
+                <button class="btn-tab" onclick="alert('Joining ${c.name} chat soon!')" style="margin:0; font-size:10px;">JOIN</button>
+            </div>
+        `).join('');
+    } else {
+        list.innerHTML = "No communities yet. Build the first one!";
+    }
+}
     checkUser();
 </script>
 </body>
