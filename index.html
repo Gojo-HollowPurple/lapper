@@ -6,17 +6,21 @@
     <title>LAPPER | The Fortress</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #0a0a0a; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        body { background: #0a0a0a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
         nav { background: #ffcc00; color: #000; width: 100%; padding: 15px; font-weight: bold; font-size: 28px; text-align: center; box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3); }
-        .auth-container, .main-app { max-width: 500px; width: 90%; margin-top: 50px; text-align: center; }
-        .card { background: #1a1a1a; border: 1px solid #333; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
+        .auth-container, .main-app { max-width: 600px; width: 95%; margin-top: 20px; text-align: center; }
+        .card { background: #1a1a1a; border: 1px solid #333; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); margin-bottom: 20px; }
         input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; }
         button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
         .btn-primary { background: #ffcc00; color: #000; }
         .btn-secondary { background: #333; color: #fff; }
+        .btn-tab { background: transparent; border: 1px solid #ffcc00; color: #ffcc00; width: auto; padding: 5px 15px; margin: 5px; }
+        .btn-tab.active { background: #ffcc00; color: #000; }
         .lap-display { margin-top: 20px; border-left: 5px solid #ffcc00; padding-left: 20px; text-align: left; }
         #current-lap-text { font-size: 24px; font-weight: bold; margin: 15px 0; }
         .hidden { display: none; }
+        .profile-badge { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffcc00; }
     </style>
 </head>
 <body>
@@ -26,84 +30,145 @@
 <div id="auth-section" class="auth-container">
     <div class="card">
         <h2>Enter the Fortress</h2>
+        <input type="text" id="reg-username" placeholder="Pick a Username (3-20 chars)">
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Password">
-        <button class="btn-primary" onclick="signUp()">SIGN UP</button>
+        <button class="btn-primary" onclick="signUp()">CREATE ACCOUNT</button>
         <button class="btn-secondary" onclick="signIn()">LOGIN</button>
         <button class="btn-secondary" style="background: #444;" onclick="continueAsGuest()">CONTINUE AS GUEST</button>
     </div>
 </div>
 
 <div id="app-section" class="main-app hidden">
-    <div class="card">
-        <div id="user-info">Logged in as: <span id="user-email" style="color:#ffcc00"></span></div>
-        <button class="btn-secondary" style="width: auto; font-size: 12px;" onclick="signOut()">Logout</button>
-        
-        <hr style="border: 0.5px solid #333; margin: 20px 0;">
+    
+    <div class="profile-badge">
+        <img id="my-avatar" class="avatar" src="">
+        <div id="user-info">Logged in as: <span id="user-display-name" style="color:#ffcc00"></span></div>
+    </div>
+    <button class="btn-secondary" style="width: auto; font-size: 11px; padding: 5px 10px;" onclick="signOut()">Logout</button>
 
-        <h3>Post a Lap</h3>
-        <textarea id="lap-input" placeholder="What's the word? (Max 100 chars)" maxlength="100"></textarea>
-        <button class="btn-primary" onclick="postLap()">SEND LAP</button>
+    <div style="margin: 20px 0;">
+        <button class="btn-tab active" id="tab-laps" onclick="switchTab('laps')">GLOBAL LAPS</button>
+        <button class="btn-tab" id="tab-comms" onclick="switchTab('comms')">COMMUNITIES</button>
+        <button class="btn-tab" id="tab-dms" onclick="switchTab('dms')">DIRECT MESSAGES</button>
     </div>
 
-    <div class="card" style="margin-top: 20px;">
-        <h3>THE LATEST LAP</h3>
-        <div class="lap-display">
-            <p id="current-lap-text">Loading the prophecy...</p>
-            <p style="color: #666; font-size: 12px;">Posted by: <span id="lap-author">...</span></p>
+    <div id="section-laps">
+        <div class="card">
+            <h3>Post a Lap</h3>
+            <textarea id="lap-input" placeholder="What's the word? (Max 100 chars)" maxlength="100"></textarea>
+            <button class="btn-primary" id="btn-post" onclick="postLap()">SEND LAP</button>
         </div>
-        <button class="btn-secondary" onclick="fetchLatestLap()">REFRESH</button>
+        <div class="card">
+            <h3>THE LATEST LAP</h3>
+            <div class="lap-display">
+                <p id="current-lap-text">Loading the prophecy...</p>
+                <p style="color: #666; font-size: 12px;">Posted by: <span id="lap-author">...</span></p>
+            </div>
+            <button class="btn-secondary" onclick="fetchLatestLap()">REFRESH</button>
+        </div>
     </div>
+
+    <div id="section-comms" class="hidden">
+        <div class="card">
+            <h3>Communities</h3>
+            <input type="text" id="new-comm-name" placeholder="Community Name">
+            <button class="btn-primary" onclick="createCommunity()">+ CREATE NEW GROUP</button>
+            <hr style="border: 0.5px solid #333; margin: 20px 0;">
+            <div id="community-list" style="text-align: left;">Searching for groups...</div>
+        </div>
+    </div>
+
+    <div id="section-dms" class="hidden">
+        <div class="card">
+            <h3>Private DMs</h3>
+            <input type="text" id="search-username" placeholder="Search Username to DM...">
+            <button class="btn-primary" onclick="searchUser()">START CHAT</button>
+            <div id="dm-status" style="margin-top:10px; font-size:12px; color:#ffcc00"></div>
+        </div>
+    </div>
+
 </div>
 
 <script>
-    // 1. INITIALIZE SUPABASE
     const supabaseUrl = 'https://plvwvjjpgfwrzfphafsz.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdnd2ampwZ2Z3cnpmcGhhZnN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMDE2OTcsImV4cCI6MjA5Mjg3NzY5N30.uMSHEPD0_H5OsshKumdY5gatFCLjpe9uYNQEN12UyLE';
     const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    // 2. AUTH LOGIC
+    let myProfile = null;
+
+    // --- AUTH & PROFILES ---
+
     async function signUp() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { error } = await _supabase.auth.signUp({ email, password });
-        if (error) {
-            alert(error.message);
-        } else {
-            alert("Check your email!");
+        const username = document.getElementById('reg-username').value.trim();
+
+        if (username.length < 3) return alert("Username too short!");
+
+        const { data, error } = await _supabase.auth.signUp({ email, password });
+        
+        if (error) return alert(error.message);
+
+        if (data.user) {
+            // Immediately create the profile in our table
+            const { error: pError } = await _supabase
+                .from('profiles')
+                .insert([{ id: data.user.id, username: username }]);
+            
+            if (pError) alert("User created, but username failed: " + pError.message);
+            else alert("Account created! Check email if confirmation is on.");
         }
     }
 
     async function signIn() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+        const { error } = await _supabase.auth.signInWithPassword({ email, password });
         if (error) alert(error.message); else checkUser();
     }
 
     async function checkUser() {
         const { data: { user } } = await _supabase.auth.getUser();
         if (user) {
+            // Fetch the profile data (username and avatar)
+            const { data: profile } = await _supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            myProfile = profile;
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('app-section').classList.remove('hidden');
-            document.getElementById('user-email').innerText = user.email;
+            document.getElementById('user-display-name').innerText = profile ? profile.username : user.email;
+            document.getElementById('my-avatar').src = profile ? profile.avatar_url : '';
             fetchLatestLap();
-        } else {
-            document.getElementById('auth-section').classList.remove('hidden');
-            document.getElementById('app-section').classList.add('hidden');
+            fetchCommunities();
         }
     }
 
-    // 3. DATABASE LOGIC (LAPS)
+    // --- TAB SYSTEM ---
+
+    function switchTab(tab) {
+        document.getElementById('section-laps').classList.add('hidden');
+        document.getElementById('section-comms').classList.add('hidden');
+        document.getElementById('section-dms').classList.add('hidden');
+        document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+
+        document.getElementById('section-' + tab).classList.remove('hidden');
+        document.getElementById('tab-' + tab).classList.add('active');
+    }
+
+    // --- LAPS LOGIC ---
+
     async function postLap() {
         const content = document.getElementById('lap-input').value;
-        const { data: { user } } = await _supabase.auth.getUser();
-        
-        if (!content) return;
+        if (!content || !myProfile) return;
 
         const { error } = await _supabase
             .from('laps')
-            .insert([{ content: content, email: user.email }]);
+            .insert([{ content: content, email: myProfile.username }]); // Now using username!
 
         if (error) alert(error.message);
         else {
@@ -113,42 +178,50 @@
     }
 
     async function fetchLatestLap() {
-        const { data, error } = await _supabase
-            .from('laps')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(1);
-
+        const { data } = await _supabase.from('laps').select('*').order('created_at', { ascending: false }).limit(1);
         if (data && data.length > 0) {
             document.getElementById('current-lap-text').innerText = `"${data[0].content}"`;
             document.getElementById('lap-author').innerText = data[0].email;
-        } else {
-            document.getElementById('current-lap-text').innerText = "No laps yet. Be the first!";
         }
     }
-    let isGuest = false;
 
-async function continueAsGuest() {
-    isGuest = true;
-    // Hide login, show app
-    document.getElementById('auth-section').classList.add('hidden');
-    document.getElementById('app-section').classList.remove('hidden');
-    
-    // Hide the posting UI for guests (Read-Only Mode)
-    document.getElementById('user-info').innerHTML = "<span style='color:#888'>Viewing as Guest (Login to post)</span>";
-    document.querySelector('.card textarea').disabled = true;
-    document.querySelector('.card textarea').placeholder = "Guests cannot post laps...";
-    document.querySelector('.btn-primary').classList.add('hidden');
-    
-    fetchLatestLap();
-}
+    // --- COMMUNITIES LOGIC ---
 
-// Update your existing signOut to reset guest status
-async function signOut() {
-    isGuest = false;
-    await _supabase.auth.signOut();
-    checkUser();
-}
+    async function createCommunity() {
+        const name = document.getElementById('new-comm-name').value;
+        if (!name) return;
+        const { error } = await _supabase.from('communities').insert([{ name, owner_id: myProfile.id }]);
+        if (error) alert(error.message); else fetchCommunities();
+    }
+
+    async function fetchCommunities() {
+        const { data } = await _supabase.from('communities').select('*');
+        const list = document.getElementById('community-list');
+        if (data) {
+            list.innerHTML = data.map(c => `<div class="card" style="padding:10px; margin-bottom:5px;">
+                <strong># ${c.name}</strong> <button class="btn-tab" style="float:right">Join Chat</button>
+            </div>`).join('');
+        }
+    }
+
+    // --- DM LOGIC ---
+
+    async function searchUser() {
+        const target = document.getElementById('search-username').value;
+        const { data, error } = await _supabase.from('profiles').select('id, username').eq('username', target).single();
+        
+        if (data) {
+            document.getElementById('dm-status').innerText = `Opening secure tunnel to ${data.username}...`;
+            // Here you would redirect to a DM window with receiver_id: data.id
+        } else {
+            alert("User not found in the Fortress.");
+        }
+    }
+
+    async function signOut() {
+        await _supabase.auth.signOut();
+        location.reload();
+    }
 
     checkUser();
 </script>
