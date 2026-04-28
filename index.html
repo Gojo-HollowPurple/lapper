@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAPPER | The Fortress Global</title>
+    <title>LAPPER | The Fortress V4.1</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background: #0a0a0a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
@@ -14,6 +14,7 @@
         button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
         .btn-primary { background: #ffcc00; color: #000; }
         .btn-secondary { background: #333; color: #fff; }
+        .btn-danger { background: #ff4444; color: #fff; width: auto; padding: 5px 10px; margin-left: 5px; }
         .btn-tab { background: transparent; border: 1px solid #ffcc00; color: #ffcc00; width: auto; padding: 5px 15px; margin: 5px; }
         .btn-tab.active { background: #ffcc00; color: #000; }
         .hidden { display: none; }
@@ -21,6 +22,8 @@
         .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffcc00; }
         .inbox-item { background: #222; padding: 10px; margin: 5px 0; border-radius: 8px; cursor: pointer; border: 1px solid #444; text-align: left; display: flex; align-items: center; justify-content: space-between; }
         .comm-card { text-align: left; background: #111; border-left: 4px solid #ffcc00; padding: 15px; margin-bottom: 15px; border-radius: 0 10px 10px 0; }
+        .chat-win { background:#000; padding:15px; border-radius:10px; height:300px; overflow-y:auto; text-align:left; display:flex; flex-direction:column; border: 1px solid #333; }
+        .comm-actions { display: flex; align-items: center; gap: 5px; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -40,12 +43,12 @@
 
 <div id="app-section" class="main-app hidden">
     <div class="profile-badge">
-        <img id="my-avatar" class="avatar" src="">
+        <img id="my-avatar" class="avatar" src="https://via.placeholder.com/40">
         <div id="user-info"><span id="user-display-name" style="color:#ffcc00; font-weight: bold;"></span></div>
         <button class="btn-secondary" style="width: auto; font-size: 10px; padding: 5px;" onclick="signOut()">Logout</button>
     </div>
 
-    <div style="margin: 10px 0;">
+    <div id="nav-tabs" style="margin: 10px 0;">
         <button class="btn-tab active" id="tab-laps" onclick="switchTab('laps')">LAPS</button>
         <button class="btn-tab" id="tab-comms" onclick="switchTab('comms')">COMMUNITIES</button>
         <button class="btn-tab" id="tab-dms" onclick="switchTab('dms')">DMs</button>
@@ -57,25 +60,37 @@
             <button class="btn-primary" onclick="postLap()">SEND LAP</button>
         </div>
         <div class="card">
-            <div id="current-lap-text">Watching the skies...</div>
+            <div id="current-lap-text" style="font-size: 20px; font-weight: bold;">Watching the skies...</div>
             <p style="color: #666; font-size: 12px;">By: <span id="lap-author">...</span></p>
         </div>
     </div>
 
     <div id="section-comms" class="hidden">
-        <div class="card">
-            <h3>Create Group</h3>
-            <input type="text" id="new-comm-name" placeholder="Group Name">
-            <textarea id="new-comm-desc" placeholder="What is this place? (Description)" maxlength="150" style="height: 60px;"></textarea>
-            <select id="new-comm-privacy">
-                <option value="true">Public (Everyone)</option>
-                <option value="false">Private (Hidden)</option>
-            </select>
-            <button class="btn-primary" onclick="createCommunity()">FORGE COMMUNITY</button>
+        <div id="comm-list-view">
+            <div class="card">
+                <h3>Forge Group</h3>
+                <input type="text" id="new-comm-name" placeholder="Group Name">
+                <textarea id="new-comm-desc" placeholder="Group description..." maxlength="150" style="height: 60px;"></textarea>
+                <select id="new-comm-privacy">
+                    <option value="true">Public (Default)</option>
+                    <option value="false">Private</option>
+                </select>
+                <button class="btn-primary" onclick="createCommunity()">CREATE COMMUNITY</button>
+            </div>
+            <div class="card">
+                <h3>Explore</h3>
+                <div id="community-list">Scanning...</div>
+            </div>
         </div>
-        <div class="card">
-            <h3>Explore</h3>
-            <div id="community-list">Scanning frequencies...</div>
+
+        <div id="comm-chat-view" class="hidden">
+            <div class="card">
+                <h3 id="active-comm-name"># Group Name</h3>
+                <div id="comm-chat-window" class="chat-win"></div>
+                <input type="text" id="comm-msg-input" placeholder="Message the group...">
+                <button class="btn-primary" onclick="sendCommMsg()">SEND</button>
+                <button class="btn-secondary" onclick="exitComm()">Exit Group</button>
+            </div>
         </div>
     </div>
 
@@ -89,7 +104,7 @@
         </div>
         <div id="chat-container" class="card hidden">
             <h4 id="chat-with-name">Chat</h4>
-            <div id="chat-window" style="background:#000; padding:15px; border-radius:10px; height:250px; overflow-y:auto; text-align:left; display:flex; flex-direction:column;"></div>
+            <div id="dm-chat-window" class="chat-win"></div>
             <input type="text" id="dm-input" placeholder="Secret message...">
             <button class="btn-primary" onclick="sendDM()">SEND</button>
             <button class="btn-secondary" onclick="closeChat()">Back to Inbox</button>
@@ -104,29 +119,30 @@
 
     let myProfile = null;
     let activeChatId = null;
+    let activeCommId = null;
 
-    // --- AUTH ---
     async function checkUser() {
         const { data: { user } } = await _supabase.auth.getUser();
         if (user) {
-            const { data: profile } = await _supabase.from('profiles').select('*').eq('id', user.id).single();
-            myProfile = profile;
+            const { data } = await _supabase.from('profiles').select('*').eq('id', user.id).single();
+            myProfile = data;
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('app-section').classList.remove('hidden');
-            document.getElementById('user-display-name').innerText = profile?.username || "Lapper";
-            document.getElementById('my-avatar').src = profile?.avatar_url || "";
+            document.getElementById('user-display-name').innerText = data.username;
+            setupRealtime();
             fetchLatestLap();
             fetchInbox();
             fetchCommunities();
-            setupRealtime();
         }
     }
 
-    // --- REALTIME ---
     function setupRealtime() {
         _supabase.channel('global_fortress')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'laps' }, p => updateLapUI(p.new))
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communities' }, () => fetchCommunities())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'communities' }, () => fetchCommunities())
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages' }, p => {
+            if (activeCommId === p.new.community_id) loadCommMsgs();
+        })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, p => {
             if (activeChatId && (p.new.sender_id === activeChatId || p.new.receiver_id === activeChatId)) loadDMs();
             fetchInbox();
@@ -135,84 +151,115 @@
 
     // --- COMMUNITIES ---
     async function createCommunity() {
-        const name = document.getElementById('new-comm-name').value.trim();
-        const desc = document.getElementById('new-comm-desc').value.trim();
-        const isPublic = document.getElementById('new-comm-privacy').value === "true";
+        const name = document.getElementById('new-comm-name').value;
+        const desc = document.getElementById('new-comm-desc').value;
+        const isPub = document.getElementById('new-comm-privacy').value === "true";
+        if(!name) return alert("Name required!");
+        await _supabase.from('communities').insert([{ name, description: desc, is_public: isPub, owner_id: myProfile.id }]);
+        document.getElementById('new-comm-name').value = '';
+        document.getElementById('new-comm-desc').value = '';
+    }
 
-        if (!name) return alert("Community needs a name!");
+    async function fetchCommunities() {
+        const { data } = await _supabase.from('communities').select('*').or(`is_public.eq.true,owner_id.eq.${myProfile.id}`).order('created_at', { ascending: false });
+        document.getElementById('community-list').innerHTML = data ? data.map(c => `
+            <div class="comm-card" style="border-color:${c.is_public ? '#ffcc00' : '#f44'}">
+                <strong># ${c.name}</strong>
+                <p style="font-size:12px; color:#888;">${c.description || 'No description.'}</p>
+                <div class="comm-actions">
+                    <button class="btn-tab" style="flex-grow:1; margin:0;" onclick="enterComm('${c.id}', '${c.name}')">ENTER</button>
+                    ${c.owner_id === myProfile.id ? `<button class="btn-danger" onclick="deleteCommunity('${c.id}', '${c.name}')">🗑️</button>` : ''}
+                </div>
+            </div>
+        `).join('') : "No communities found.";
+    }
 
-        const { error } = await _supabase.from('communities').insert([{ 
-            name, 
-            description: desc, 
-            is_public: isPublic, 
-            owner_id: myProfile.id 
-        }]);
-
-        if (error) alert(error.message);
-        else {
-            document.getElementById('new-comm-name').value = '';
-            document.getElementById('new-comm-desc').value = '';
+    async function deleteCommunity(id, name) {
+        if(!confirm(`Are you sure you want to delete ${name}? This cannot be undone.`)) return;
+        
+        const { error } = await _supabase.from('communities').delete().eq('id', id).eq('owner_id', myProfile.id);
+        
+        if(error) {
+            alert("Error: " + error.message);
+        } else {
+            if(activeCommId === id) exitComm();
             fetchCommunities();
         }
     }
 
-    async function fetchCommunities() {
-        // Fetch all public ones, or any private ones you own
-        const { data } = await _supabase.from('communities')
-            .select('*')
-            .or(`is_public.eq.true,owner_id.eq.${myProfile.id}`)
-            .order('created_at', { ascending: false });
-
-        const list = document.getElementById('community-list');
-        if (data && data.length > 0) {
-            list.innerHTML = data.map(c => `
-                <div class="comm-card" style="border-color: ${c.is_public ? '#ffcc00' : '#ff4444'}">
-                    <div style="display:flex; justify-content:space-between;">
-                        <strong># ${c.name}</strong>
-                        <span style="font-size:10px; color:#666;">${c.is_public ? 'PUBLIC' : 'PRIVATE'}</span>
-                    </div>
-                    <p style="font-size:13px; color:#bbb; margin: 8px 0;">${c.description || 'No description.'}</p>
-                    <button class="btn-tab" style="width:100%; margin:0;" onclick="alert('Chat room coming next!')">ENTER</button>
-                </div>
-            `).join('');
-        } else {
-            list.innerHTML = "The world is empty. Build something.";
-        }
+    async function enterComm(id, name) {
+        activeCommId = id;
+        document.getElementById('active-comm-name').innerText = "# " + name;
+        document.getElementById('comm-list-view').classList.add('hidden');
+        document.getElementById('comm-chat-view').classList.remove('hidden');
+        loadCommMsgs();
     }
 
-    // --- LAPS, DMs, & TABS (Standard Logic) ---
+    function exitComm() {
+        activeCommId = null;
+        document.getElementById('comm-list-view').classList.remove('hidden');
+        document.getElementById('comm-chat-view').classList.add('hidden');
+    }
+
+    async function loadCommMsgs() {
+        const { data } = await _supabase.from('community_messages')
+            .select('content, sender_id, profiles(username)')
+            .eq('community_id', activeCommId)
+            .order('created_at', { ascending: true });
+        
+        const win = document.getElementById('comm-chat-window');
+        win.innerHTML = data ? data.map(m => `
+            <div style="margin-bottom:8px; align-self: ${m.sender_id === myProfile.id ? 'flex-end' : 'flex-start'}">
+                <b style="color:${m.sender_id === myProfile.id ? '#ffcc00' : '#00d4ff'}">${m.profiles?.username || 'User'}:</b> 
+                <span>${m.content}</span>
+            </div>
+        `).join('') : "";
+        win.scrollTop = win.scrollHeight;
+    }
+
+    async function sendCommMsg() {
+        const input = document.getElementById('comm-msg-input');
+        if (!input.value.trim()) return;
+        await _supabase.from('community_messages').insert([{ community_id: activeCommId, sender_id: myProfile.id, content: input.value.trim() }]);
+        input.value = '';
+    }
+
+    // --- STANDARD UTILS ---
+    function switchTab(tab) {
+        ['laps', 'comms', 'dms'].forEach(t => {
+            document.getElementById('section-'+t).classList.add('hidden');
+            document.getElementById('tab-'+t).classList.remove('active');
+        });
+        document.getElementById('section-'+tab).classList.remove('hidden');
+        document.getElementById('tab-'+tab).classList.add('active');
+    }
+
     async function postLap() {
         const content = document.getElementById('lap-input').value;
-        if (content) await _supabase.from('laps').insert([{ content, email: myProfile.username }]);
+        if(content) await _supabase.from('laps').insert([{ content, email: myProfile.username }]);
         document.getElementById('lap-input').value = '';
     }
-    async function fetchLatestLap() {
-        const { data } = await _supabase.from('laps').select('*').order('created_at', { ascending: false }).limit(1);
-        if (data?.[0]) updateLapUI(data[0]);
-    }
+
     function updateLapUI(lap) {
         document.getElementById('current-lap-text').innerText = `"${lap.content}"`;
         document.getElementById('lap-author').innerText = lap.email;
     }
-    function switchTab(tab) {
-        ['laps', 'comms', 'dms'].forEach(t => {
-            document.getElementById(`section-${t}`).classList.add('hidden');
-            document.getElementById(`tab-${t}`).classList.remove('active');
-        });
-        document.getElementById(`section-${tab}`).classList.remove('hidden');
-        document.getElementById(`tab-${tab}`).classList.add('active');
+
+    async function fetchLatestLap() {
+        const { data } = await _supabase.from('laps').select('*').order('created_at', { ascending: false }).limit(1);
+        if (data?.[0]) updateLapUI(data[0]);
     }
+
     async function fetchInbox() {
-        if (!myProfile) return;
         const { data } = await _supabase.from('direct_messages').select('sender_id, receiver_id').or(`sender_id.eq.${myProfile.id},receiver_id.eq.${myProfile.id}`);
-        if (data) {
-            const ids = [...new Set(data.flatMap(d => [d.sender_id, d.receiver_id]))].filter(id => id !== myProfile.id);
-            if (ids.length > 0) {
-                const { data: profs } = await _supabase.from('profiles').select('id, username').in('id', ids);
-                document.getElementById('dm-inbox').innerHTML = profs.map(p => `<div class="inbox-item" onclick="openChat('${p.id}', '${p.username}')"><span>${p.username}</span><span>→</span></div>`).join('');
-            }
+        if (!data) return;
+        const ids = [...new Set(data.flatMap(d => [d.sender_id, d.receiver_id]))].filter(id => id !== myProfile.id);
+        if (ids.length > 0) {
+            const { data: profs } = await _supabase.from('profiles').select('id, username').in('id', ids);
+            document.getElementById('dm-inbox').innerHTML = profs.map(p => `<div class="inbox-item" onclick="openChat('${p.id}', '${p.username}')"><span>${p.username}</span><span>→</span></div>`).join('');
         }
     }
+
     async function openChat(id, name) {
         activeChatId = id;
         document.getElementById('chat-with-name').innerText = `Chat with ${name}`;
@@ -220,42 +267,45 @@
         document.getElementById('chat-container').classList.remove('hidden');
         loadDMs();
     }
-    function closeChat() {
-        activeChatId = null;
-        document.getElementById('dm-inbox-section').classList.remove('hidden');
-        document.getElementById('chat-container').classList.add('hidden');
-    }
+
+    function closeChat() { activeChatId = null; document.getElementById('dm-inbox-section').classList.remove('hidden'); document.getElementById('chat-container').classList.add('hidden'); }
+
     async function loadDMs() {
         const { data } = await _supabase.from('direct_messages').select('*').or(`and(sender_id.eq.${myProfile.id},receiver_id.eq.${activeChatId}),and(sender_id.eq.${activeChatId},receiver_id.eq.${myProfile.id})`).order('created_at', { ascending: true });
-        const win = document.getElementById('chat-window');
+        const win = document.getElementById('dm-chat-window');
         win.innerHTML = data ? data.map(m => `<div style="align-self: ${m.sender_id === myProfile.id ? 'flex-end' : 'flex-start'}; color:${m.sender_id === myProfile.id ? '#ffcc00' : '#fff'}"><b>${m.sender_id === myProfile.id ? 'Me' : 'Them'}:</b> ${m.content}</div>`).join('') : "";
         win.scrollTop = win.scrollHeight;
     }
+
     async function sendDM() {
         const content = document.getElementById('dm-input').value;
-        if (content && activeChatId) await _supabase.from('direct_messages').insert([{ sender_id: myProfile.id, receiver_id: activeChatId, content }]);
+        if(content && activeChatId) await _supabase.from('direct_messages').insert([{ sender_id: myProfile.id, receiver_id: activeChatId, content }]);
         document.getElementById('dm-input').value = '';
         loadDMs();
     }
+
     async function searchUser() {
         const target = document.getElementById('search-username').value;
         const { data } = await _supabase.from('profiles').select('id, username').eq('username', target).single();
         if (data) openChat(data.id, data.username); else alert("User not found!");
     }
+
     async function signUp() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const username = document.getElementById('reg-username').value.trim();
+        const username = document.getElementById('reg-username').value;
         const { data, error } = await _supabase.auth.signUp({ email, password });
         if (error) return alert(error.message);
-        if (data.user) { await _supabase.from('profiles').insert([{ id: data.user.id, username }]); alert("Account created!"); }
+        if (data.user) { await _supabase.from('profiles').insert([{ id: data.user.id, username }]); alert("Done!"); }
     }
+
     async function signIn() {
         const { error } = await _supabase.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
         if (error) alert(error.message); else checkUser();
     }
+
     async function signOut() { await _supabase.auth.signOut(); location.reload(); }
-    
+
     checkUser();
 </script>
 </body>
