@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAPPER | The Fortress</title>
+    <title>LAPPER | Real-Time Fortress</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background: #0a0a0a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
@@ -21,6 +21,8 @@
         .hidden { display: none; }
         .profile-badge { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
         .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ffcc00; }
+        .inbox-item { background: #222; padding: 10px; margin: 5px 0; border-radius: 8px; cursor: pointer; border: 1px solid #444; text-align: left; display: flex; align-items: center; justify-content: space-between; }
+        .inbox-item:hover { border-color: #ffcc00; }
     </style>
 </head>
 <body>
@@ -30,268 +32,200 @@
 <div id="auth-section" class="auth-container">
     <div class="card">
         <h2>Enter the Fortress</h2>
-        <input type="text" id="reg-username" placeholder="Pick a Username (3-20 chars)">
+        <input type="text" id="reg-username" placeholder="Pick a Username">
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Password">
         <button class="btn-primary" onclick="signUp()">CREATE ACCOUNT</button>
         <button class="btn-secondary" onclick="signIn()">LOGIN</button>
-        <button class="btn-secondary" style="background: #444;" onclick="continueAsGuest()">CONTINUE AS GUEST</button>
     </div>
 </div>
 
 <div id="app-section" class="main-app hidden">
-    
     <div class="profile-badge">
         <img id="my-avatar" class="avatar" src="">
-        <div id="user-info">Logged in as: <span id="user-display-name" style="color:#ffcc00"></span></div>
+        <div id="user-info"><span id="user-display-name" style="color:#ffcc00; font-weight: bold;"></span></div>
+        <button class="btn-secondary" style="width: auto; font-size: 10px; padding: 5px;" onclick="signOut()">Logout</button>
     </div>
-    <button class="btn-secondary" style="width: auto; font-size: 11px; padding: 5px 10px;" onclick="signOut()">Logout</button>
 
-    <div style="margin: 20px 0;">
-        <button class="btn-tab active" id="tab-laps" onclick="switchTab('laps')">GLOBAL LAPS</button>
+    <div style="margin: 10px 0;">
+        <button class="btn-tab active" id="tab-laps" onclick="switchTab('laps')">LAPS</button>
         <button class="btn-tab" id="tab-comms" onclick="switchTab('comms')">COMMUNITIES</button>
-        <button class="btn-tab" id="tab-dms" onclick="switchTab('dms')">DIRECT MESSAGES</button>
+        <button class="btn-tab" id="tab-dms" onclick="switchTab('dms')">DMs</button>
     </div>
 
     <div id="section-laps">
         <div class="card">
-            <h3>Post a Lap</h3>
-            <textarea id="lap-input" placeholder="What's the word? (Max 100 chars)" maxlength="100"></textarea>
-            <button class="btn-primary" id="btn-post" onclick="postLap()">SEND LAP</button>
+            <textarea id="lap-input" placeholder="Update the prophecy..." maxlength="100"></textarea>
+            <button class="btn-primary" onclick="postLap()">SEND LAP</button>
         </div>
         <div class="card">
-            <h3>THE LATEST LAP</h3>
+            <h3>LATEST LAP</h3>
             <div class="lap-display">
-                <p id="current-lap-text">Loading the prophecy...</p>
-                <p style="color: #666; font-size: 12px;">Posted by: <span id="lap-author">...</span></p>
+                <p id="current-lap-text">Watching the skies...</p>
+                <p style="color: #666; font-size: 12px;">By: <span id="lap-author">...</span></p>
             </div>
-            <button class="btn-secondary" onclick="fetchLatestLap()">REFRESH</button>
         </div>
     </div>
 
     <div id="section-comms" class="hidden">
         <div class="card">
-            <h3>Communities</h3>
-            <input type="text" id="new-comm-name" placeholder="Community Name">
-            <button class="btn-primary" onclick="createCommunity()">+ CREATE NEW GROUP</button>
-            <hr style="border: 0.5px solid #333; margin: 20px 0;">
-            <div id="community-list" style="text-align: left;">Searching for groups...</div>
+            <h3>Groups</h3>
+            <input type="text" id="new-comm-name" placeholder="Group Name">
+            <button class="btn-primary" onclick="createCommunity()">CREATE</button>
+            <div id="community-list" style="margin-top: 15px;"></div>
         </div>
     </div>
 
     <div id="section-dms" class="hidden">
         <div class="card">
-            <h3>Private DMs</h3>
-            <input type="text" id="search-username" placeholder="Search Username to DM...">
-            <button class="btn-primary" onclick="searchUser()">START CHAT</button>
+            <h3>Inbox</h3>
+            <div id="dm-inbox" style="margin-bottom: 20px;"></div>
+            <hr style="border: 0.1px solid #333;">
+            <input type="text" id="search-username" placeholder="Search Username...">
+            <button class="btn-primary" onclick="searchUser()">START NEW CHAT</button>
             <div id="dm-status" style="margin-top:10px; font-size:12px; color:#ffcc00"></div>
         </div>
+        <div id="chat-container" class="card hidden">
+            <h4 id="chat-with-name">Chat</h4>
+            <div id="chat-window" style="background:#000; padding:15px; border-radius:10px; height:250px; overflow-y:auto; text-align:left; border: 1px solid #333;"></div>
+            <input type="text" id="dm-input" placeholder="Secret message...">
+            <button class="btn-primary" onclick="sendDM()">SEND</button>
+            <button class="btn-secondary" onclick="closeChat()">Back to Inbox</button>
+        </div>
     </div>
-
 </div>
 
 <script>
     const supabaseUrl = 'https://plvwvjjpgfwrzfphafsz.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsdnd2ampwZ2Z3cnpmcGhhZnN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMDE2OTcsImV4cCI6MjA5Mjg3NzY5N30.uMSHEPD0_H5OsshKumdY5gatFCLjpe9uYNQEN12UyLE';
+    const supabaseKey = 'YOUR_KEY_HERE'; // Use your existing key
     const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
     let myProfile = null;
+    let activeChatId = null;
 
-    // --- AUTH & PROFILES ---
-
-    async function signUp() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const username = document.getElementById('reg-username').value.trim();
-
-        if (username.length < 3) return alert("Username too short!");
-
-        const { data, error } = await _supabase.auth.signUp({ email, password });
-        
-        if (error) return alert(error.message);
-
-        if (data.user) {
-            // Immediately create the profile in our table
-            const { error: pError } = await _supabase
-                .from('profiles')
-                .insert([{ id: data.user.id, username: username }]);
-            
-            if (pError) alert("User created, but username failed: " + pError.message);
-            else alert("Account created! Check email if confirmation is on.");
-        }
-    }
-
-    async function signIn() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const { error } = await _supabase.auth.signInWithPassword({ email, password });
-        if (error) alert(error.message); else checkUser();
-    }
-
+    // --- AUTH ---
     async function checkUser() {
         const { data: { user } } = await _supabase.auth.getUser();
         if (user) {
-            // Fetch the profile data (username and avatar)
-            const { data: profile } = await _supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-
+            const { data: profile } = await _supabase.from('profiles').select('*').eq('id', user.id).single();
             myProfile = profile;
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('app-section').classList.remove('hidden');
-            document.getElementById('user-display-name').innerText = profile ? profile.username : user.email;
-            document.getElementById('my-avatar').src = profile ? profile.avatar_url : '';
+            document.getElementById('user-display-name').innerText = profile.username;
+            document.getElementById('my-avatar').src = profile.avatar_url;
+            
             fetchLatestLap();
-            fetchCommunities();
+            setupRealtime();
+            fetchInbox();
         }
     }
 
-    // --- TAB SYSTEM ---
-
-    function switchTab(tab) {
-        document.getElementById('section-laps').classList.add('hidden');
-        document.getElementById('section-comms').classList.add('hidden');
-        document.getElementById('section-dms').classList.add('hidden');
-        document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
-
-        document.getElementById('section-' + tab).classList.remove('hidden');
-        document.getElementById('tab-' + tab).classList.add('active');
+    // --- REALTIME (The Key!) ---
+    function setupRealtime() {
+        _supabase.channel('room1')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'laps' }, payload => {
+            updateLapUI(payload.new);
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, payload => {
+            if (activeChatId && (payload.new.sender_id === activeChatId || payload.new.receiver_id === activeChatId)) {
+                loadDMs();
+            }
+            fetchInbox();
+        })
+        .subscribe();
     }
 
-    // --- LAPS LOGIC ---
-
+    // --- LAPS ---
     async function postLap() {
         const content = document.getElementById('lap-input').value;
-        if (!content || !myProfile) return;
-
-        const { error } = await _supabase
-            .from('laps')
-            .insert([{ content: content, email: myProfile.username }]); // Now using username!
-
-        if (error) alert(error.message);
-        else {
-            document.getElementById('lap-input').value = '';
-            fetchLatestLap();
-        }
+        await _supabase.from('laps').insert([{ content, email: myProfile.username }]);
+        document.getElementById('lap-input').value = '';
     }
 
     async function fetchLatestLap() {
         const { data } = await _supabase.from('laps').select('*').order('created_at', { ascending: false }).limit(1);
-        if (data && data.length > 0) {
-            document.getElementById('current-lap-text').innerText = `"${data[0].content}"`;
-            document.getElementById('lap-author').innerText = data[0].email;
-        }
+        if (data?.[0]) updateLapUI(data[0]);
     }
 
-    // --- COMMUNITIES LOGIC ---
-
-    async function createCommunity() {
-        const name = document.getElementById('new-comm-name').value;
-        if (!name) return;
-        const { error } = await _supabase.from('communities').insert([{ name, owner_id: myProfile.id }]);
-        if (error) alert(error.message); else fetchCommunities();
+    function updateLapUI(lap) {
+        document.getElementById('current-lap-text').innerText = `"${lap.content}"`;
+        document.getElementById('lap-author').innerText = lap.email;
     }
 
-    async function fetchCommunities() {
-        const { data } = await _supabase.from('communities').select('*');
-        const list = document.getElementById('community-list');
-        if (data) {
-            list.innerHTML = data.map(c => `<div class="card" style="padding:10px; margin-bottom:5px;">
-                <strong># ${c.name}</strong> <button class="btn-tab" style="float:right">Join Chat</button>
-            </div>`).join('');
-        }
-    }
+    // --- DM INBOX & CHAT ---
+    async function fetchInbox() {
+        // Gets all unique users you have messaged or messaged you
+        const { data } = await _supabase.from('direct_messages')
+            .select('sender_id, receiver_id')
+            .or(`sender_id.eq.${myProfile.id},receiver_id.eq.${myProfile.id}`);
 
-    // --- DM LOGIC ---
-
-    let activeChatId = null; // The UUID of the person you are DMing
-
-async function searchUser() {
-    const target = document.getElementById('search-username').value;
-    const { data, error } = await _supabase
-        .from('profiles')
-        .select('id, username')
-        .eq('username', target)
-        .single();
-    
-    if (data) {
-        activeChatId = data.id; // Save who we are talking to
-        document.getElementById('dm-status').innerText = `Tunnel Open: ${data.username}`;
-        loadDMs(); // Start fetching the messages
-    } else {
-        alert("User not found in the Fortress.");
-    }
-}
-
-// FETCH MESSAGES
-async function loadDMs() {
-    if (!activeChatId || !myProfile) return;
-
-    // Get messages where (Me -> Them) OR (Them -> Me)
-    const { data, error } = await _supabase
-        .from('direct_messages')
-        .select('*')
-        .or(`and(sender_id.eq.${myProfile.id},receiver_id.eq.${activeChatId}),and(sender_id.eq.${activeChatId},receiver_id.eq.${myProfile.id})`)
-        .order('created_at', { ascending: true });
-
-    if (data) {
-        const dmContainer = document.getElementById('section-dms');
-        // Add a small chat window to the UI if it doesn't exist
-        let chatBox = document.getElementById('chat-window');
-        if (!chatBox) {
-            chatBox = document.createElement('div');
-            chatBox.id = 'chat-window';
-            chatBox.style = "background:#222; padding:15px; border-radius:10px; margin-top:10px; height:200px; overflow-y:auto; text-align:left;";
-            dmContainer.appendChild(chatBox);
-            
-            // Add a Send Input
-            const input = document.createElement('input');
-            input.id = 'dm-input';
-            input.placeholder = "Type a secret message...";
-            const btn = document.createElement('button');
-            btn.className = "btn-primary";
-            btn.innerText = "SEND DM";
-            btn.onclick = sendDM;
-            dmContainer.appendChild(input);
-            dmContainer.appendChild(btn);
-        }
+        const uniqueUserIds = [...new Set(data.flatMap(d => [d.sender_id, d.receiver_id]))].filter(id => id !== myProfile.id);
         
-        chatBox.innerHTML = data.map(m => `
-            <div style="margin-bottom:10px; color: ${m.sender_id === myProfile.id ? '#ffcc00' : '#eee'}">
-                <strong>${m.sender_id === myProfile.id ? 'Me' : 'Them'}:</strong> ${m.content}
+        if (uniqueUserIds.length > 0) {
+            const { data: profiles } = await _supabase.from('profiles').select('id, username, avatar_url').in('id', uniqueUserIds);
+            const inbox = document.getElementById('dm-inbox');
+            inbox.innerHTML = profiles.map(p => `
+                <div class="inbox-item" onclick="openChat('${p.id}', '${p.username}')">
+                    <span><img src="${p.avatar_url}" style="width:20px; border-radius:50%"> ${p.username}</span>
+                    <span style="color:#ffcc00">→</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    async function openChat(id, name) {
+        activeChatId = id;
+        document.getElementById('chat-with-name').innerText = `Chat with ${name}`;
+        document.getElementById('dm-inbox').classList.add('hidden');
+        document.getElementById('chat-container').classList.remove('hidden');
+        loadDMs();
+    }
+
+    function closeChat() {
+        activeChatId = null;
+        document.getElementById('dm-inbox').classList.remove('hidden');
+        document.getElementById('chat-container').classList.add('hidden');
+    }
+
+    async function loadDMs() {
+        const { data } = await _supabase.from('direct_messages')
+            .select('*')
+            .or(`and(sender_id.eq.${myProfile.id},receiver_id.eq.${activeChatId}),and(sender_id.eq.${activeChatId},receiver_id.eq.${myProfile.id})`)
+            .order('created_at', { ascending: true });
+
+        const win = document.getElementById('chat-window');
+        win.innerHTML = data.map(m => `
+            <div style="margin-bottom:8px; color:${m.sender_id === myProfile.id ? '#ffcc00' : '#fff'}">
+                <b>${m.sender_id === myProfile.id ? 'Me' : 'Them'}:</b> ${m.content}
             </div>
         `).join('');
+        win.scrollTop = win.scrollHeight;
     }
-}
 
-// SEND MESSAGE
-async function sendDM() {
-    const content = document.getElementById('dm-input').value;
-    if (!content || !activeChatId) return;
-
-    const { error } = await _supabase
-        .from('direct_messages')
-        .insert([{ 
-            sender_id: myProfile.id, 
-            receiver_id: activeChatId, 
-            content: content 
-        }]);
-
-    if (error) {
-        alert("Encryption failed (RLS Error): " + error.message);
-    } else {
+    async function sendDM() {
+        const content = document.getElementById('dm-input').value;
+        if (!content) return;
+        await _supabase.from('direct_messages').insert([{ sender_id: myProfile.id, receiver_id: activeChatId, content }]);
         document.getElementById('dm-input').value = '';
-        loadDMs(); // Refresh chat
-    }
-}
-    
-    async function signOut() {
-        await _supabase.auth.signOut();
-        location.reload();
     }
 
+    async function searchUser() {
+        const target = document.getElementById('search-username').value;
+        const { data } = await _supabase.from('profiles').select('id, username').eq('username', target).single();
+        if (data) openChat(data.id, data.username);
+        else alert("User not found!");
+    }
+
+    function switchTab(tab) {
+        ['laps', 'comms', 'dms'].forEach(t => {
+            document.getElementById(`section-${t}`).classList.add('hidden');
+            document.getElementById(`tab-${t}`).classList.remove('active');
+        });
+        document.getElementById(`section-${tab}`).classList.remove('hidden');
+        document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    async function signOut() { await _supabase.auth.signOut(); location.reload(); }
     checkUser();
 </script>
 </body>
